@@ -9,8 +9,8 @@ pub Program: Program = {
 }
 
 Func: Func = {
-  <return_type:Type> <name:Identifier> "(" <params:FuncParam*> ")" "{" <statement:Statement> "}" => 
-    Func { return_type, name, statement,  params }
+  <return_type:Type> <name:Identifier> "(" <params:FuncParam*> ")" "{" <statements:Statement*> "}" => 
+    Func { return_type, name, statements,  params }
 }
 
 FuncParam: FuncParam = {
@@ -18,21 +18,67 @@ FuncParam: FuncParam = {
 }
 
 Statement: Statement = {
-  "return" <return_value:Expr> ";" => Statement { return_value }
+  "return" <e:Expr> ";" => Statement::Return(e),
+  <e:Expr> ";" => Statement::Expr(e),  
+  <var_type:Type> <id:Identifier>  ";" => Statement::Declare(var_type,id, None),
+  <var_type:Type> <id:Identifier> "=" <init:Expr> ";" => Statement::Declare(var_type,id, Some(init)),
 }
 
+// Expression grammar with explicit precedence hierarchy
+// Precedence from lowest to highest: LogicalOr -> LogicalAnd -> Equality -> Relational -> Additive -> Multiplicative -> Unary -> Primary
+// This structure ensures proper C operator precedence and associativity
+
+// Top-level expression entry point
 Expr: Expr = {
-  #[precedence(level="0")]
-  <constant:Num> => Expr::Const(constant),
+  <id:Identifier> "=" <val:Expr> => Expr::Assignment(id,Box::new(val)),
+  LogicalOrExpr
+}
 
-  #[precedence(level="1")]
-  "(" <expr:Expr> ")" => Expr::Group(Box::new(expr)),
+LogicalOrExpr: Expr = {
+  <l_expr:LogicalOrExpr> "||" <r_expr:AndExpr> => Expr::Binary(BinaryOp::LogicalOr,Box::new(l_expr),Box::new(r_expr)),
+  AndExpr  // Fallback to higher precedence
+}
 
-  #[precedence(level="2")] #[assoc(side="left")]
-  <l_expr:Expr> <bin_op:BinaryOp> <r_expr:Expr> => Expr::Binary(bin_op,Box::new(l_expr),Box::new(r_expr)),
+AndExpr: Expr = {
+  <l_expr:AndExpr> "&&" <r_expr:EqualityExpr> => Expr::Binary(BinaryOp::LogicalAnd,Box::new(l_expr),Box::new(r_expr)),
+  EqualityExpr  // Fallback to higher precedence
+}
 
-  #[precedence(level="3")] #[assoc(side="left")]
-  <uni_op:UnaryOp> <expr:Expr> => Expr::Unary(uni_op,Box::new(expr)),
+EqualityExpr: Expr = {
+  <l_expr:EqualityExpr> <bin_op:EqualityOp> <r_expr:RelationalExpr> => Expr::Binary(bin_op,Box::new(l_expr),Box::new(r_expr)),
+  RelationalExpr  // Fallback to higher precedence
+}
+
+// Relational operators: < <= > >= (higher precedence than equality, left-associative)
+RelationalExpr: Expr = {
+  <l_expr:RelationalExpr> <bin_op:RelationalOp> <r_expr:AddExpr> => Expr::Binary(bin_op,Box::new(l_expr),Box::new(r_expr)),
+  AddExpr  // Fallback to higher precedence
+}
+
+// Additive operators: + - (higher precedence than relational, left-associative)
+AddExpr: Expr = {
+  <l_expr:AddExpr> <bin_op:AddOp> <r_expr:MultExpr> => Expr::Binary(bin_op,Box::new(l_expr),Box::new(r_expr)),
+  MultExpr  // Fallback to higher precedence
+}
+
+// Multiplicative operators: * / (higher precedence than additive, left-associative)
+MultExpr: Expr = {
+  <l_expr:MultExpr> <bin_op:MultOp> <r_expr:UnaryExpr> => Expr::Binary(bin_op,Box::new(l_expr),Box::new(r_expr)),
+  UnaryExpr  // Fallback to higher precedence
+}
+
+// Unary operators (higher precedence than binary, right-associative)  
+UnaryExpr: Expr = {
+  <uni_op:UnaryOp> <expr:UnaryExpr> => Expr::Unary(uni_op,Box::new(expr)),
+  PrimaryExpr  // Fallback to highest precedence
+}
+
+// Primary expressions (highest precedence)
+// Constants, variables, and parentheses - parentheses can contain any full expression
+PrimaryExpr: Expr = {
+  Num => Expr::Const(<>),
+  Identifier => Expr::Var(<>),
+  "(" <e:Expr> ")" => Expr::Group(Box::new(e))  // Parentheses reset to top-level
 }
 
 UnaryOp: UnaryOp = {
@@ -41,9 +87,24 @@ UnaryOp: UnaryOp = {
   "-" => UnaryOp::Negative,
 }
 
-BinaryOp: BinaryOp = {
+EqualityOp: BinaryOp = {
+  "==" => BinaryOp::Equal,
+  "!=" => BinaryOp::NotEqual,
+}
+
+RelationalOp: BinaryOp = {
+  "<" => BinaryOp::Less,
+  "<=" => BinaryOp::LessEqual,
+  ">" => BinaryOp::Greater,
+  ">=" => BinaryOp::GreaterEqual,
+}
+
+AddOp: BinaryOp = {
   "+" => BinaryOp::Add,
   "-" => BinaryOp::Subtract,
+}
+
+MultOp: BinaryOp = {
   "*" => BinaryOp::Multiply,
   "/" => BinaryOp::Divide,
 }
@@ -60,4 +121,3 @@ Identifier: String = {
 Num: i32 = {
     r"[0-9]+" => i32::from_str(<>).unwrap(),
 };
-

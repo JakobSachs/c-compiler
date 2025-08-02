@@ -4,26 +4,105 @@ use itertools::Itertools;
 
 use compiler::ast::Expr;
 use compiler::ast::Program;
-use compiler::generate::generate;
+use compiler::generate::CodeGenerator;
 use compiler::grammar;
+
+fn pretty_print_expr(expr: &Expr) -> String {
+    match expr {
+        Expr::Const(value) => value.to_string(),
+        Expr::Var(name) => name.clone(),
+        Expr::Unary(op, expr) => {
+            let op_str = match op {
+                compiler::ast::UnaryOp::Negate => "!",
+                compiler::ast::UnaryOp::BitwiseNegate => "~",
+                compiler::ast::UnaryOp::Negative => "-",
+            };
+            format!("{}{}", op_str, pretty_print_expr(expr))
+        }
+        Expr::Binary(op, left, right) => {
+            let op_str = match op {
+                compiler::ast::BinaryOp::Add => "+",
+                compiler::ast::BinaryOp::Subtract => "-",
+                compiler::ast::BinaryOp::Multiply => "*",
+                compiler::ast::BinaryOp::Divide => "/",
+                compiler::ast::BinaryOp::Equal => "==",
+                compiler::ast::BinaryOp::NotEqual => "!=",
+                compiler::ast::BinaryOp::Less => "<",
+                compiler::ast::BinaryOp::LessEqual => "<=",
+                compiler::ast::BinaryOp::Greater => ">",
+                compiler::ast::BinaryOp::GreaterEqual => ">=",
+                compiler::ast::BinaryOp::LogicalAnd => "&&",
+                compiler::ast::BinaryOp::LogicalOr => "||",
+            };
+            format!(
+                "({} {} {})",
+                pretty_print_expr(left),
+                op_str,
+                pretty_print_expr(right)
+            )
+        }
+        Expr::Group(expr) => format!("({})", pretty_print_expr(expr)),
+        Expr::Assignment(var, expr) => format!("{} = {}", var, pretty_print_expr(expr)),
+    }
+}
+
+fn pretty_print_statement(stmt: &compiler::ast::Statement, indent: usize) -> String {
+    let indent_str = "  ".repeat(indent);
+    match stmt {
+        compiler::ast::Statement::Return(expr) => {
+            format!("{}return {};", indent_str, pretty_print_expr(expr))
+        }
+        compiler::ast::Statement::Expr(expr) => {
+            format!("{}{};", indent_str, pretty_print_expr(expr))
+        }
+        compiler::ast::Statement::Declare(type_name, var_name, init) => {
+            let type_str = match type_name {
+                compiler::ast::Type::Int => "int",
+                compiler::ast::Type::Void => "void",
+            };
+            match init {
+                Some(expr) => format!(
+                    "{}{} {} = {};",
+                    indent_str,
+                    type_str,
+                    var_name,
+                    pretty_print_expr(expr)
+                ),
+                None => format!("{}{} {};", indent_str, type_str, var_name),
+            }
+        }
+    }
+}
 
 fn pretty_print(program: &Program) {
     for f in program.functions.iter() {
-        println!("FUNC {:?} {}:", f.return_type, f.name);
+        let return_type = match f.return_type {
+            compiler::ast::Type::Int => "int",
+            compiler::ast::Type::Void => "void",
+        };
+        println!("FUNC {} {}:", return_type, f.name);
         println!(
             "\tparams: ({})",
             f.params
                 .iter()
-                .map(|p| { format!("{:?} {}", p.param_type, p.param_name) })
+                .map(|p| {
+                    let param_type = match p.param_type {
+                        compiler::ast::Type::Int => "int",
+                        compiler::ast::Type::Void => "void",
+                    };
+                    format!("{} {}", param_type, p.param_name)
+                })
                 .intersperse(", ".to_string())
                 .collect::<String>()
         );
         println!("\tbody:");
-        println!("\t\tRETURN {:?}", f.statement.return_value);
+        for s in f.statements.iter() {
+            println!("\t{}", pretty_print_statement(s, 1));
+        }
     }
 }
 
-fn main() {
+fn main() -> Result<(), std::io::Error> {
     let path = std::env::args_os().nth(1);
     let path = match path {
         Some(path) => path.into_string().unwrap(),
@@ -47,15 +126,12 @@ fn main() {
     output_path.push_str(".s");
 
     // parse and generate
-    match grammar::ProgramParser::new().parse(&input) {
-        Ok(programm) => {
-            pretty_print(&programm);
-            let out = generate(&programm);
-            let mut output_file = std::fs::File::create(output_path).unwrap();
-            write!(output_file, "{}", out).unwrap();
-        }
-        Err(err) => {
-            eprintln!("error during parsing: {}", err);
-        }
-    }
+    let programm = grammar::ProgramParser::new().parse(&input).unwrap();
+    pretty_print(&programm);
+    let mut generator = CodeGenerator::new();
+    generator.generate(&programm);
+    let out = generator.output();
+    let mut output_file = std::fs::File::create(output_path)?;
+    write!(output_file, "{}", out)?;
+    Ok(())
 }

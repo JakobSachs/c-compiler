@@ -7,7 +7,7 @@ pub struct Program {
 pub struct Func {
     pub return_type: Type,
     pub name: String,
-    pub statement: Statement,
+    pub statements: Vec<Statement>,
     pub params: Vec<FuncParam>,
 }
 
@@ -17,35 +17,50 @@ pub struct FuncParam {
     pub param_name: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Type {
     Int,
     Void,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expr {
     Const(i32),
+    Var(String),
     Unary(UnaryOp, Box<Expr>),
     Binary(BinaryOp, Box<Expr>, Box<Expr>),
     Group(Box<Expr>),
+    Assignment(String, Box<Expr>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UnaryOp {
     Negate,
     BitwiseNegate,
     Negative,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum BinaryOp {
+    // Arithmetic operators
     Add,
+    Subtract,
     Multiply,
     Divide,
-    Subtract,
+    // Comparison operators
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    // Logical operators
+    LogicalAnd,
+    LogicalOr,
 }
 
 #[derive(Debug)]
-pub struct Statement {
-    pub return_value: Expr,
+pub enum Statement {
+    Return(Expr),
+    Expr(Expr),
+    Declare(Type, String, Option<Expr>),
 }
