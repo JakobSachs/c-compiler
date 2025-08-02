@@ -66,8 +66,9 @@ checksum = "9555578bc9e57714c812a1f84e4fc5b4d21fcb063490c624de019f7464c91268"
 name = "compiler"
 version = "0.1.0"
 dependencies = [
+ "itertools",
  "lalrpop",
- "lalrpop-util 0.21.0",
+ "lalrpop-util",
  "thiserror",
 ]
 
@@ -181,7 +182,7 @@ dependencies = [
  "bit-set",
  "ena",
  "itertools",
- "lalrpop-util 0.22.2",
+ "lalrpop-util",
  "petgraph",
  "pico-args",
  "regex",
@@ -191,15 +192,6 @@ dependencies = [
  "term",
  "unicode-xid",
  "walkdir",
-]
-
-[[package]]
-name = "lalrpop-util"
-version = "0.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "108dc8f5dabad92c65a03523055577d847f5dcc00f3e7d3a68bc4d48e01d8fe1"
-dependencies = [
- "regex-automata",
 ]
 
 [[package]]

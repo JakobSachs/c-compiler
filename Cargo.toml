@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-lalrpop-util = { version = "0.21.0", features = ["lexer", "unicode"] }
+itertools = "0.14.0"
+lalrpop-util = { version = "0.22.0", features = ["lexer", "unicode"] }
 thiserror = "2"
 
 [build-dependencies]

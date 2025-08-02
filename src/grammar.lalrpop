@@ -1,24 +1,56 @@
 use std::str::FromStr;
 
-use crate::ast::{Func,Program};
+use crate::ast::{Expr, Func, FuncParam, Program, Type, Statement,UnaryOp, BinaryOp};
 
 grammar;
 
 pub Program: Program = {
-  Func* => 
+  <functions:Func*> => Program { functions }
 }
 
-Func: Func= {
-  Type Identifier "(" ")" "{" Statement "}"
+Func: Func = {
+  <return_type:Type> <name:Identifier> "(" <params:FuncParam*> ")" "{" <statement:Statement> "}" => 
+    Func { return_type, name, statement,  params }
 }
 
-Statement = {
-  "return" Num ";"
+FuncParam: FuncParam = {
+  <param_type:Type> <param_name:Identifier> => FuncParam { param_type, param_name }
 }
 
-Type = {
-  "int", 
-  "void"
+Statement: Statement = {
+  "return" <return_value:Expr> ";" => Statement { return_value }
+}
+
+Expr: Expr = {
+  #[precedence(level="0")]
+  <constant:Num> => Expr::Const(constant),
+
+  #[precedence(level="1")]
+  "(" <expr:Expr> ")" => Expr::Group(Box::new(expr)),
+
+  #[precedence(level="2")] #[assoc(side="left")]
+  <l_expr:Expr> <bin_op:BinaryOp> <r_expr:Expr> => Expr::Binary(bin_op,Box::new(l_expr),Box::new(r_expr)),
+
+  #[precedence(level="3")] #[assoc(side="left")]
+  <uni_op:UnaryOp> <expr:Expr> => Expr::Unary(uni_op,Box::new(expr)),
+}
+
+UnaryOp: UnaryOp = {
+  "!" => UnaryOp::Negate,
+  "~" => UnaryOp::BitwiseNegate,
+  "-" => UnaryOp::Negative,
+}
+
+BinaryOp: BinaryOp = {
+  "+" => BinaryOp::Add,
+  "-" => BinaryOp::Subtract,
+  "*" => BinaryOp::Multiply,
+  "/" => BinaryOp::Divide,
+}
+
+Type: Type = {
+  "int" => Type::Int, 
+  "void" => Type::Void
 }
 
 Identifier: String = {
