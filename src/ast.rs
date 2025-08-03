@@ -7,7 +7,7 @@ pub struct Program {
 pub struct Func {
     pub return_type: Type,
     pub name: String,
-    pub statements: Vec<Statement>,
+    pub block_items: Vec<Statement>,
     pub params: Vec<FuncParam>,
 }
 
@@ -63,4 +63,6 @@ pub enum Statement {
     Return(Expr),
     Expr(Expr),
     Declare(Type, String, Option<Expr>),
+    If(Expr, Box<Statement>, Option<Box<Statement>>),
+    Compound(Vec<Statement>),
 }

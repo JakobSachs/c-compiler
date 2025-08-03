@@ -28,10 +28,13 @@ impl CodeGenerator {
             label_counter: 0,
         }
     }
-
     pub fn emit_line(&mut self, code: &str) {
         self.buffer.push_str(code);
         self.buffer.push('\n');
+    }
+    pub fn emit_label(&mut self, label: &str) {
+        self.buffer.push_str(label);
+        self.buffer.push_str(":\n");
     }
 
     // gets a random not used labelsofar , TODO: keep track of these
@@ -39,6 +42,11 @@ impl CodeGenerator {
         let label = format!("{}_{}", prefix, self.label_counter);
         self.label_counter += 1;
         label
+    }
+
+    // Generate a jump to a label
+    fn emit_jump(&mut self, label: &str) {
+        self.emit_line(&format!("\tb {}", label));
     }
 
     pub fn generate_expr(&mut self, expr: &Expr) {
@@ -209,6 +217,11 @@ impl CodeGenerator {
 
     fn generate_statement(&mut self, statement: &Statement) {
         match statement {
+            Statement::Compound(statements) => {
+                for s in statements {
+                    self.generate_statement(s);
+                }
+            }
             Statement::Return(expr) => {
                 self.generate_expr(expr);
                 self.stack_offset -= 0x10;
@@ -219,6 +232,44 @@ impl CodeGenerator {
                 self.emit_line("\tmov sp, fp"); // restore stack pointer
                 self.emit_line("\tldp fp, lr, [sp], #16"); // restore fp and lr, post-increment sp
                 self.emit_line("\tret");
+            }
+            Statement::If(cond, branch, else_branch) => {
+                self.generate_expr(cond);
+                // pop cond result
+                self.stack_offset -= 0x10;
+                self.emit_line("\tldr x0, [sp]");
+                self.emit_line("\tadd sp, sp, #0x10");
+
+                // setup labels for if-branch,else and end
+                let branch_lbl = self.get_unique_label("branch_if");
+                let else_lbl = self.get_unique_label("branch_else");
+                let end_lbl = self.get_unique_label("branch_end");
+
+                self.emit_line("\tsubs x0, x0, #0"); // doesnt change x0 just updates flags
+                self.emit_line("\tcset x0, eq"); // updates based on flags
+
+                // if we have an else, branch to there, else just branch to end
+                match else_branch {
+                    Some(else_branch) => {
+                        self.emit_line(&format!("\ttbnz w0, #0, {}", else_lbl));
+                    }
+                    None => {
+                        self.emit_line(&format!("\ttbnz w0, #0, {}", end_lbl));
+                    }
+                }
+                // branch to if and run
+                self.emit_jump(&branch_lbl); // b to branch
+                self.emit_label(&branch_lbl); // set label
+                self.generate_statement(branch); // content
+                self.emit_jump(&end_lbl); // b to end
+
+                // else
+                if let Some(else_branch) = else_branch {
+                    self.emit_label(&else_lbl); //
+                    self.generate_statement(else_branch);
+                    self.emit_jump(&end_lbl); // b to end
+                }
+                self.emit_label(&end_lbl);
             }
             Statement::Declare(var_type, id, value) => {
                 // check if already declared
@@ -275,7 +326,7 @@ impl CodeGenerator {
 
             // content
             let mut had_return = false;
-            for s in f.statements.iter() {
+            for s in f.block_items.iter() {
                 if let Statement::Return(..) = s {
                     had_return = true;
                 }

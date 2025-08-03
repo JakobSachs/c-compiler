@@ -71,6 +71,22 @@ fn pretty_print_statement(stmt: &compiler::ast::Statement, indent: usize) -> Str
                 None => format!("{}{} {};", indent_str, type_str, var_name),
             }
         }
+        compiler::ast::Statement::If(condition, then_stmt, else_stmt) => {
+            let mut result = format!("{}if ({})\n", indent_str, pretty_print_expr(condition));
+            result.push_str(&pretty_print_statement(then_stmt, indent));
+            if let Some(else_stmt) = else_stmt {
+                result.push_str(&format!("\n{}else\n", indent_str));
+                result.push_str(&pretty_print_statement(else_stmt, indent));
+            }
+            result
+        }
+        compiler::ast::Statement::Compound(statements) => {
+            let mut result = format!("{}{{\n", indent_str);
+            for stmt in statements {
+                result.push_str(&format!("{}\n", pretty_print_statement(stmt, indent + 1)));
+            }
+            format!("{}{}}}", result, indent_str)
+        }
     }
 }
 
@@ -96,7 +112,7 @@ fn pretty_print(program: &Program) {
                 .collect::<String>()
         );
         println!("\tbody:");
-        for s in f.statements.iter() {
+        for s in f.block_items.iter() {
             println!("\t{}", pretty_print_statement(s, 1));
         }
     }

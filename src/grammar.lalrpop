@@ -9,19 +9,45 @@ pub Program: Program = {
 }
 
 Func: Func = {
-  <return_type:Type> <name:Identifier> "(" <params:FuncParam*> ")" "{" <statements:Statement*> "}" => 
-    Func { return_type, name, statements,  params }
+  <return_type:Type> <name:Identifier> "(" <params:FuncParam*> ")" "{" <block_items:BlockItem*> "}" => 
+    Func { return_type, name, block_items,  params }
 }
 
 FuncParam: FuncParam = {
   <param_type:Type> <param_name:Identifier> => FuncParam { param_type, param_name }
 }
 
-Statement: Statement = {
-  "return" <e:Expr> ";" => Statement::Return(e),
-  <e:Expr> ";" => Statement::Expr(e),  
+BlockItem: Statement = {
   <var_type:Type> <id:Identifier>  ";" => Statement::Declare(var_type,id, None),
   <var_type:Type> <id:Identifier> "=" <init:Expr> ";" => Statement::Declare(var_type,id, Some(init)),
+  Statement,
+}
+
+Statement: Statement = {
+  MatchedStatement,
+  OpenStatement,
+}
+
+// Matched statements: all if statements have matching else clauses
+MatchedStatement: Statement = {
+  "if" "(" <cond:Expr> ")" <then_stmt:MatchedStatement> "else" <else_stmt:MatchedStatement> => 
+    Statement::If(cond, Box::new(then_stmt), Some(Box::new(else_stmt))),
+  NonIfStatement,
+}
+
+// Open statements: at least one if statement lacks an else clause
+OpenStatement: Statement = {
+  "if" "(" <cond:Expr> ")" <stmt:Statement> => 
+    Statement::If(cond, Box::new(stmt), None),
+  "if" "(" <cond:Expr> ")" <then_stmt:MatchedStatement> "else" <else_stmt:OpenStatement> => 
+    Statement::If(cond, Box::new(then_stmt), Some(Box::new(else_stmt))),
+}
+
+// Non-if statements (can be used in both matched and open contexts)
+NonIfStatement: Statement = {
+  "return" <e:Expr> ";" => Statement::Return(e),
+  <e:Expr> ";" => Statement::Expr(e),
+  "{" <stmts:BlockItem*> "}" => Statement::Compound(stmts),
 }
 
 // Expression grammar with explicit precedence hierarchy
@@ -31,6 +57,10 @@ Statement: Statement = {
 // Top-level expression entry point
 Expr: Expr = {
   <id:Identifier> "=" <val:Expr> => Expr::Assignment(id,Box::new(val)),
+  <id:Identifier> "+=" <val:Expr> => Expr::Assignment(id.clone(),Box::new(Expr::Binary(BinaryOp::Add,Box::new(Expr::Var(id)),Box::new(val)))),
+  <id:Identifier> "-=" <val:Expr> => Expr::Assignment(id.clone(),Box::new(Expr::Binary(BinaryOp::Subtract,Box::new(Expr::Var(id)),Box::new(val)))),
+  <id:Identifier> "/=" <val:Expr> => Expr::Assignment(id.clone(),Box::new(Expr::Binary(BinaryOp::Divide,Box::new(Expr::Var(id)),Box::new(val)))),
+  <id:Identifier> "*=" <val:Expr> => Expr::Assignment(id.clone(),Box::new(Expr::Binary(BinaryOp::Multiply,Box::new(Expr::Var(id)),Box::new(val)))),
   LogicalOrExpr
 }
 
