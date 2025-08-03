@@ -22,14 +22,16 @@
 ├────────────────────────────────────────────────────┤██
 │                                                    │██
 │                                                    │██
-│ - Compiles C code to ARM64 assembly.               │██
-│ - BYOL/B: _Bring your own Linker/Binder_           │██
-│     - only outputs `.s` files so you gotta do the  │██
-│ rest yourself                                      │██
-│ - Dont use functions for now (really `main()` is   │██
-│ plenty.. dont be greedy)                           │██
+│  - Compiles C code to ARM64 assembly.              │██
+│  - BYOL/B: _Bring your own Linker/Binder_          │██
+│      - only outputs `.s` files so you gotta do     │██
+│  the rest yourself                                 │██
+│  - Dont use functions for now (really `main()` is  │██
+│  plenty.. dont be greedy)                          │██
+│  - NEW: Now even with if-statements                │██
+│                                                    │██
 │                                                    │██
 └────────────────────────────────────────────────────┘██
   ██████████████████████████████████████████████████████
   ██████████████████████████████████████████████████████
-  ```
+ ```
