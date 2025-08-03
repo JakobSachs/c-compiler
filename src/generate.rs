@@ -212,6 +212,34 @@ impl CodeGenerator {
                     }
                 }
             }
+            Expr::Conditional(cond, if_expr, else_expr) => {
+                //evaluate cond
+                self.generate_expr(cond);
+                // pop cond result
+                self.stack_offset -= 0x10;
+                self.emit_line("\tldr x0, [sp]");
+                self.emit_line("\tadd sp, sp, #0x10");
+
+                // setup labels for if-branch,else and end
+                let branch_lbl = self.get_unique_label("branch_if");
+                let else_lbl = self.get_unique_label("branch_else");
+                let end_lbl = self.get_unique_label("branch_end");
+
+                self.emit_line("\tsubs x0, x0, #0"); // doesnt change x0 just updates flags
+                self.emit_line("\tcset x0, eq"); // updates based on flags
+                self.emit_line(&format!("\ttbnz w0, #0, {}", else_lbl));
+                // branch to if and run
+                self.emit_jump(&branch_lbl); // b to branch
+                self.emit_label(&branch_lbl); // set label
+                self.generate_expr(if_expr); // generate expr
+                self.emit_jump(&end_lbl); // b to end
+
+                // else
+                self.emit_label(&else_lbl); //
+                self.generate_expr(else_expr);
+                self.emit_jump(&end_lbl); // b to end
+                self.emit_label(&end_lbl);
+            }
         }
     }
 
@@ -250,7 +278,7 @@ impl CodeGenerator {
 
                 // if we have an else, branch to there, else just branch to end
                 match else_branch {
-                    Some(else_branch) => {
+                    Some(_) => {
                         self.emit_line(&format!("\ttbnz w0, #0, {}", else_lbl));
                     }
                     None => {

@@ -13,7 +13,7 @@ set asm_file "$base_name.s"
 
 echo "Compiling '$input_file'..."
 # Run the compiler to generate assembly
-cargo r "$input_file"
+cargo r --bin compiler "$input_file"
 if test $status -ne 0
     echo "Error: Compilation failed."
     exit 1

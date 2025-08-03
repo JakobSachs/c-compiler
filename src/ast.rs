@@ -31,6 +31,7 @@ pub enum Expr {
     Binary(BinaryOp, Box<Expr>, Box<Expr>),
     Group(Box<Expr>),
     Assignment(String, Box<Expr>),
+    Conditional(Box<Expr>, Box<Expr>, Box<Expr>),
 }
 
 #[derive(Debug, Clone)]

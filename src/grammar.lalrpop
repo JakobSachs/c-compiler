@@ -61,8 +61,16 @@ Expr: Expr = {
   <id:Identifier> "-=" <val:Expr> => Expr::Assignment(id.clone(),Box::new(Expr::Binary(BinaryOp::Subtract,Box::new(Expr::Var(id)),Box::new(val)))),
   <id:Identifier> "/=" <val:Expr> => Expr::Assignment(id.clone(),Box::new(Expr::Binary(BinaryOp::Divide,Box::new(Expr::Var(id)),Box::new(val)))),
   <id:Identifier> "*=" <val:Expr> => Expr::Assignment(id.clone(),Box::new(Expr::Binary(BinaryOp::Multiply,Box::new(Expr::Var(id)),Box::new(val)))),
-  LogicalOrExpr
+  ConditionalExpr
 }
+
+// NEW: Rule for conditional expressions (ternary operator)
+// This has lower precedence than logical OR.
+ConditionalExpr: Expr = {
+    // The recursive use of `ConditionalExpr` on the right handles right-associativity
+    <cond:LogicalOrExpr> "?" <then:Expr> ":" <else_expr:ConditionalExpr> => Expr::Conditional(Box::new(cond), Box::new(then), Box::new(else_expr)),
+    LogicalOrExpr, // Fallback to higher precedence
+};
 
 LogicalOrExpr: Expr = {
   <l_expr:LogicalOrExpr> "||" <r_expr:AndExpr> => Expr::Binary(BinaryOp::LogicalOr,Box::new(l_expr),Box::new(r_expr)),
